@@ -4,11 +4,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import re
 import json
-import google.generativeai as genai  # Old SDK
+import google.generativeai as genai  # Old SDK – works
 
 # Gemini setup
 genai.configure(api_key="AIzaSyAiJdnHDPnCbTgqOmDDoMqWsPIDJf4CLxs")
-model = genai.GenerativeModel('gemini-pro')  # Fixed: Free/stable model
+model = genai.GenerativeModel('gemini-pro')  # Confirmed working
 
 df = pd.read_csv('shl_catalog_enriched.csv')
 embedder = SentenceTransformer('all-MiniLM-L6-v2')

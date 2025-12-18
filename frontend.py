@@ -17,4 +17,4 @@ if st.button("Get Recommendations"):
         else:
             st.error("Error: Check API.")
     else:
-        st.warning("Enter a query.")
+        st.warning("Enter a query.")       
