@@ -5,7 +5,7 @@ import pandas as pd
 st.title("SHL Assessment Recommender")
 
 query = st.text_area("Enter query or JD:", height=100)
-API_URL = "http://localhost:8000/recommend"  # Update to deployed API URL
+API_URL = "https://shl-recommender-8qdx.onrender.com"  # Update to deployed API URL
 
 if st.button("Get Recommendations"):
     if query:
