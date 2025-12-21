@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware  # Add this line
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import pandas as pd
@@ -8,13 +8,18 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import re
 import json
+import logging  # Add logging
+
+# Setup logging for Render
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Add CORS (fix cross-domain from Streamlit)
+# CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all (or add "https://your-app.streamlit.app")
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,7 +28,7 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
 
-# Lazy load (OOM fix)
+# Lazy load
 _df = None
 _embedder = None
 _embeddings = None
@@ -31,36 +36,45 @@ _embeddings = None
 def load_data():
     global _df, _embedder, _embeddings
     if _df is None:
+        logger.info("Loading dataset...")
         _df = pd.read_csv('shl_catalog_enriched.csv')
-        _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+        logger.info("Loading model...")
+        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Lighter model (80MB)
+        logger.info("Encoding embeddings...")
         _embeddings = _embedder.encode(_df['description'].tolist())
+        logger.info("Load complete.")
     return _df, _embedder, _embeddings
 
 def recommend(query, top_k=10):
-    df, embedder, embeddings = load_data()
-    query_emb = embedder.encode([query])
-    sims = cosine_similarity(query_emb, embeddings).flatten()
-    top_indices = np.argsort(sims)[-top_k*3:][::-1]
-    
-    candidates = df.iloc[top_indices].copy()
-    candidates['similarity'] = sims[top_indices]
-    
-    # Duration filter
-    dur_match = re.search(r'(\d+)( minutes?| hours?)', query.lower())
-    if dur_match:
-        dur = int(dur_match.group(1)) * (60 if 'hour' in dur_match.group(2) else 1)
-        candidates = candidates[candidates['duration_minutes'] <= dur]
-    
-    # Balance
-    if any(word in query.lower() for word in ['collaborate', 'communication', 'personality']):
-        ks = candidates[candidates['test_type'].str.contains('Knowledge', na=False)]
-        pb = candidates[candidates['test_type'].str.contains('Personality', na=False)]
-        balanced = pd.concat([ks.head(5), pb.head(5)]).drop_duplicates().head(top_k)
-    else:
-        balanced = candidates.head(top_k)
-    
-    recs = balanced[['name', 'url', 'adaptive_support', 'description', 'duration_minutes', 'remote_support', 'test_type']].to_dict('records')
-    return recs
+    try:
+        df, embedder, embeddings = load_data()
+        query_emb = embedder.encode([query])
+        sims = cosine_similarity(query_emb, embeddings).flatten()
+        top_indices = np.argsort(sims)[-top_k*3:][::-1]
+        
+        candidates = df.iloc[top_indices].copy()
+        candidates['similarity'] = sims[top_indices]
+        
+        # Duration filter
+        dur_match = re.search(r'(\d+)( minutes?| hours?)', query.lower())
+        if dur_match:
+            dur = int(dur_match.group(1)) * (60 if 'hour' in dur_match.group(2) else 1)
+            candidates = candidates[candidates['duration_minutes'] <= dur]
+        
+        # Balance
+        if any(word in query.lower() for word in ['collaborate', 'communication', 'personality']):
+            ks = candidates[candidates['test_type'].str.contains('Knowledge', na=False)]
+            pb = candidates[candidates['test_type'].str.contains('Personality', na=False)]
+            balanced = pd.concat([ks.head(5), pb.head(5)]).drop_duplicates().head(top_k)
+        else:
+            balanced = candidates.head(top_k)
+        
+        recs = balanced[['name', 'url', 'adaptive_support', 'description', 'duration_minutes', 'remote_support', 'test_type']].to_dict('records')
+        logger.info(f"Generated {len(recs)} recs for query: {query[:50]}...")
+        return recs
+    except Exception as e:
+        logger.error(f"Recommend error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 def health():
