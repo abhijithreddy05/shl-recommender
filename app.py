@@ -36,9 +36,9 @@ def load_data():
         logger.info("Loading dataset...")
         _df = pd.read_csv('shl_catalog_enriched.csv')
         logger.info("Loading lighter model...")
-        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Lighter 50MB model
-        logger.info("Encoding embeddings...")
-        _embeddings = _embedder.encode(_df['description'].tolist())
+        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # 50MB model
+        logger.info("Loading pre-computed embeddings...")
+        _embeddings = np.load('embeddings.npy')  # Pre-computed – fast
         logger.info("Load complete.")
     return _df, _embedder, _embeddings
 
