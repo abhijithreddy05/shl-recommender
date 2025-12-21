@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy as np  # Add this import
+import numpy as np  # Add this line
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import re
@@ -11,8 +11,8 @@ genai.configure(api_key="AIzaSyAiJdnHDPnCbTgqOmDDoMqWsPIDJf4CLxs")
 model = genai.GenerativeModel('gemini-pro')  # Fixed: Free/stable model
 
 df = pd.read_csv('shl_catalog_enriched.csv')
-embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Lighter 50MB model (OOM fix)
-embeddings = np.load('embeddings.npy')  # Pre-computed (add to repo if missing)
+embedder = SentenceTransformer('all-MiniLM-L6-v2')
+embeddings = np.load('embeddings.npy')
 
 def recommend(query, top_k=10):
     query_emb = embedder.encode([query])
