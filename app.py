@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware  # Add this for CORS
+from fastapi.middleware.cors import CORSMiddleware  # Add for CORS fix
 from pydantic import BaseModel
 import uvicorn
 import pandas as pd
@@ -11,7 +11,7 @@ import json
 
 app = FastAPI()
 
-# Add CORS (fix for Streamlit)
+# CORS fix for Streamlit
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all (or add "https://your-app.streamlit.app")
