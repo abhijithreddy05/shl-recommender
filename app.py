@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # Add this for CORS
 from pydantic import BaseModel
 import uvicorn
 import pandas as pd
@@ -10,10 +11,19 @@ import json
 
 app = FastAPI()
 
+# Add CORS (fix for Streamlit)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all (or add "https://your-app.streamlit.app")
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class QueryRequest(BaseModel):
     query: str
 
-# Lazy load globals (OOM fix – loads on first request)
+# Lazy load (OOM fix)
 _df = None
 _embedder = None
 _embeddings = None
@@ -23,7 +33,7 @@ def load_data():
     if _df is None:
         _df = pd.read_csv('shl_catalog_enriched.csv')
         _embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        _embeddings = _embedder.encode(_df['description'].tolist())  # Regenerate – no npy needed
+        _embeddings = _embedder.encode(_df['description'].tolist())
     return _df, _embedder, _embeddings
 
 def recommend(query, top_k=10):
@@ -41,7 +51,7 @@ def recommend(query, top_k=10):
         dur = int(dur_match.group(1)) * (60 if 'hour' in dur_match.group(2) else 1)
         candidates = candidates[candidates['duration_minutes'] <= dur]
     
-    # Balance (mix types for multi-domain)
+    # Balance
     if any(word in query.lower() for word in ['collaborate', 'communication', 'personality']):
         ks = candidates[candidates['test_type'].str.contains('Knowledge', na=False)]
         pb = candidates[candidates['test_type'].str.contains('Personality', na=False)]
