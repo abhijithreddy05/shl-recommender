@@ -8,15 +8,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import re
 import json
-import logging  # Add logging
+import logging
 
-# Setup logging for Render
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# CORS for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,7 +26,6 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
 
-# Lazy load
 _df = None
 _embedder = None
 _embeddings = None
@@ -38,8 +35,8 @@ def load_data():
     if _df is None:
         logger.info("Loading dataset...")
         _df = pd.read_csv('shl_catalog_enriched.csv')
-        logger.info("Loading model...")
-        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Lighter model (80MB)
+        logger.info("Loading lighter model...")
+        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Lighter 50MB model
         logger.info("Encoding embeddings...")
         _embeddings = _embedder.encode(_df['description'].tolist())
         logger.info("Load complete.")
@@ -48,6 +45,7 @@ def load_data():
 def recommend(query, top_k=10):
     try:
         df, embedder, embeddings = load_data()
+        logger.info(f"Processing query: {query[:50]}...")
         query_emb = embedder.encode([query])
         sims = cosine_similarity(query_emb, embeddings).flatten()
         top_indices = np.argsort(sims)[-top_k*3:][::-1]
@@ -70,7 +68,7 @@ def recommend(query, top_k=10):
             balanced = candidates.head(top_k)
         
         recs = balanced[['name', 'url', 'adaptive_support', 'description', 'duration_minutes', 'remote_support', 'test_type']].to_dict('records')
-        logger.info(f"Generated {len(recs)} recs for query: {query[:50]}...")
+        logger.info(f"Generated {len(recs)} recs.")
         return recs
     except Exception as e:
         logger.error(f"Recommend error: {e}")
