@@ -3,9 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import pandas as pd
-import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sentence_transformers import SentenceTransformer
 import re
 import json
 import logging
@@ -27,27 +26,26 @@ class QueryRequest(BaseModel):
     query: str
 
 _df = None
-_embedder = None
-_embeddings = None
+_vectorizer = None
+_tfidf_matrix = None
 
 def load_data():
-    global _df, _embedder, _embeddings
+    global _df, _vectorizer, _tfidf_matrix
     if _df is None:
         logger.info("Loading dataset...")
         _df = pd.read_csv('shl_catalog_enriched.csv')
-        logger.info("Loading lighter model...")
-        _embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # 50MB model
-        logger.info("Loading pre-computed embeddings...")
-        _embeddings = np.load('embeddings.npy')  # Pre-computed – fast
+        logger.info("Vectorizing with TF-IDF...")
+        _vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')  # Lightweight
+        _tfidf_matrix = _vectorizer.fit_transform(_df['description'].tolist())
         logger.info("Load complete.")
-    return _df, _embedder, _embeddings
+    return _df, _vectorizer, _tfidf_matrix
 
 def recommend(query, top_k=10):
     try:
-        df, embedder, embeddings = load_data()
+        df, vectorizer, tfidf_matrix = load_data()
         logger.info(f"Processing query: {query[:50]}...")
-        query_emb = embedder.encode([query])
-        sims = cosine_similarity(query_emb, embeddings).flatten()
+        query_vec = vectorizer.transform([query])
+        sims = cosine_similarity(query_vec, tfidf_matrix).flatten()
         top_indices = np.argsort(sims)[-top_k*3:][::-1]
         
         candidates = df.iloc[top_indices].copy()
